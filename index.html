@@ -18,45 +18,100 @@
                     </svg>
                     <h1>Claude Code</h1>
                 </div>
-                <button class="new-chat-btn">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <span>New Chat</span>
-                </button>
             </div>
 
             <div class="history-section">
                 <h3>Recent Conversations</h3>
-                <div class="history-list">
-                    <button class="history-item active">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                        <span>Build custom interface</span>
-                    </button>
-                    <button class="history-item">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                        <span>Debug API endpoint</span>
-                    </button>
-                    <button class="history-item">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                        <span>Refactor authentication</span>
-                    </button>
+                <div class="history-list" id="historyList">
+                    <div class="history-empty">No conversations yet</div>
                 </div>
             </div>
 
-            <div class="skills-section">
-                <h3>Available Skills</h3>
-                <div class="skills-filter">
-                    <input type="text" id="skillsSearch" placeholder="Search skills..." />
+            <div class="favorites-section">
+                <div class="section-header">
+                    <h3>Favorite Prompts</h3>
+                    <button class="add-btn" id="addFavoriteBtn" title="Add new favorite">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
                 </div>
-                <div class="skills-list" id="skillsList">
-                    <div class="skills-loading">Loading skills...</div>
+                <div class="favorites-list" id="favoritesList">
+                    <div class="favorites-empty">No favorites yet. Click + to add.</div>
+                </div>
+            </div>
+
+            <div class="projects-section">
+                <div class="section-header">
+                    <h3>Recent Projects</h3>
+                    <button class="add-btn" id="addProjectBtn" title="Add new project">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="projects-list" id="projectsList">
+                    <div class="projects-empty">No projects yet. Click + to add.</div>
+                </div>
+            </div>
+
+            <div class="tabbed-section">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="agents">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span>Agents</span>
+                    </button>
+                    <button class="tab-btn" data-tab="skills">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
+                        <span>Skills</span>
+                    </button>
+                </div>
+
+                <div class="tab-content active" id="agentsTab">
+                    <div class="agents-list" id="agentsList">
+                        <button class="agent-item" data-agent="general-purpose">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <span>General Purpose</span>
+                        </button>
+                        <button class="agent-item" data-agent="Explore">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                                <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <span>Code Explorer</span>
+                        </button>
+                        <button class="agent-item" data-agent="code-reviewer">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            <span>Code Reviewer</span>
+                        </button>
+                        <button class="agent-item" data-agent="aisuite:researcher">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" stroke-width="2"/>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            <span>Researcher</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="skillsTab">
+                    <div class="skills-filter">
+                        <input type="text" id="skillsSearch" placeholder="Search skills..." />
+                    </div>
+                    <div class="skills-list" id="skillsList">
+                        <div class="skills-loading">Loading skills...</div>
+                    </div>
                 </div>
             </div>
 
@@ -68,10 +123,6 @@
                     </svg>
                     <span>Settings</span>
                 </button>
-                <div class="user-profile">
-                    <div class="avatar">JH</div>
-                    <span class="username">julia.hanlon</span>
-                </div>
             </div>
         </aside>
 
@@ -108,23 +159,27 @@
                             <span class="auth-text">Google</span>
                         </button>
                     </div>
-                    <button class="icon-btn" title="Clear chat">
+                    <button class="icon-btn" id="clearChatBtn" title="Clear chat">
                         <svg viewBox="0 0 24 24" fill="none">
                             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2"/>
                         </svg>
                     </button>
-                    <button class="icon-btn" title="Export conversation">
+                    <button class="icon-btn" id="exportChatBtn" title="Export conversation">
                         <svg viewBox="0 0 24 24" fill="none">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
                     </button>
-                    <button class="icon-btn" title="More options">
+                    <button class="icon-btn" id="moreOptionsBtn" title="More options">
                         <svg viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="5" r="1" fill="currentColor"/>
                             <circle cx="12" cy="12" r="1" fill="currentColor"/>
                             <circle cx="12" cy="19" r="1" fill="currentColor"/>
                         </svg>
                     </button>
+                    <div class="more-menu" id="moreMenu">
+                        <button class="more-menu-item" id="copyLastResponseBtn">Copy Last Response</button>
+                        <button class="more-menu-item" id="newWindowBtn">Open in New Window</button>
+                    </div>
                 </div>
             </div>
 
@@ -144,51 +199,19 @@
                     </div>
                     <h3>Welcome to Claude Code</h3>
                     <p>Your AI-powered coding assistant with Salesforce integration</p>
-                    <div class="quick-actions">
-                        <button class="quick-action-btn">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor" stroke-width="2"/>
-                                <path d="M13 2v7h7" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <div>
-                                <strong>Create Component</strong>
-                                <span>Build Lightning Web Components</span>
-                            </div>
-                        </button>
-                        <button class="quick-action-btn">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <div>
-                                <strong>Review Code</strong>
-                                <span>Get AI code review feedback</span>
-                            </div>
-                        </button>
-                        <button class="quick-action-btn">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <div>
-                                <strong>Debug Issue</strong>
-                                <span>Troubleshoot errors and bugs</span>
-                            </div>
-                        </button>
-                        <button class="quick-action-btn">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                                <path d="M12 16v-4M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <div>
-                                <strong>Explain Code</strong>
-                                <span>Understand complex code sections</span>
-                            </div>
-                        </button>
-                    </div>
+                    <p class="welcome-hint">Select an agent or skill from the sidebar to get started, or just type your question below.</p>
                 </div>
             </div>
 
             <div class="input-container">
+                <div class="new-chat-wrapper">
+                    <button class="new-chat-btn">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span>New Chat</span>
+                    </button>
+                </div>
                 <div class="input-wrapper">
                     <button class="icon-btn attach-btn" title="Attach file">
                         <svg viewBox="0 0 24 24" fill="none">
@@ -218,6 +241,45 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" id="closeSettingsBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Default Model</h3>
+                    <select id="defaultModelSelect" class="settings-select">
+                        <option value="sonnet">Sonnet 4.6 (Balanced)</option>
+                        <option value="opus">Opus 4.8 (Most Capable)</option>
+                        <option value="haiku">Haiku 4.5 (Fast)</option>
+                        <option value="fable">Fable 5 (Latest)</option>
+                    </select>
+                </div>
+                <div class="settings-section">
+                    <h3>Export/Import</h3>
+                    <button class="settings-btn primary" id="exportDataBtn">Export Favorites & Projects</button>
+                    <button class="settings-btn primary" id="importDataBtn">Import Favorites & Projects</button>
+                    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                </div>
+                <div class="settings-section">
+                    <h3>Debug Info</h3>
+                    <button class="settings-btn primary" id="viewDebugBtn">View Storage Debug Info</button>
+                    <button class="settings-btn primary" id="clearAllDataBtn">Clear All Data</button>
+                    <div id="debugInfo" style="display: none; margin-top: 1rem; padding: 1rem; background: #f3f3f3; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <div class="settings-section">
+                    <h3>About</h3>
+                    <p>Claude Code Web Interface</p>
+                    <p class="small">Version 1.1.0</p>
+                    <p class="small">Built with Claude Code</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
