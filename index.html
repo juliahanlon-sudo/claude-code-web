@@ -55,63 +55,13 @@
                 </div>
             </div>
 
-            <div class="tabbed-section">
-                <div class="tab-buttons">
-                    <button class="tab-btn active" data-tab="agents">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <span>Agents</span>
-                    </button>
-                    <button class="tab-btn" data-tab="skills">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                        </svg>
-                        <span>Skills</span>
-                    </button>
+            <div class="skills-section">
+                <h3>Available Skills</h3>
+                <div class="skills-filter">
+                    <input type="text" id="skillsSearch" placeholder="Search skills..." />
                 </div>
-
-                <div class="tab-content active" id="agentsTab">
-                    <div class="agents-list" id="agentsList">
-                        <button class="agent-item" data-agent="general-purpose">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <span>General Purpose</span>
-                        </button>
-                        <button class="agent-item" data-agent="Explore">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
-                                <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <span>Code Explorer</span>
-                        </button>
-                        <button class="agent-item" data-agent="code-reviewer">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <span>Code Reviewer</span>
-                        </button>
-                        <button class="agent-item" data-agent="aisuite:researcher">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" stroke-width="2"/>
-                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" stroke-width="2"/>
-                            </svg>
-                            <span>Researcher</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="tab-content" id="skillsTab">
-                    <div class="skills-filter">
-                        <input type="text" id="skillsSearch" placeholder="Search skills..." />
-                    </div>
-                    <div class="skills-list" id="skillsList">
-                        <div class="skills-loading">Loading skills...</div>
-                    </div>
+                <div class="skills-list" id="skillsList">
+                    <div class="skills-loading">Loading skills...</div>
                 </div>
             </div>
 
@@ -130,7 +80,21 @@
         <main class="main-content">
             <div class="chat-header">
                 <div class="header-left">
-                    <h2>Claude Code Assistant</h2>
+                    <div class="view-tabs">
+                        <button class="view-tab active" data-view="chat">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            <span>Chat</span>
+                        </button>
+                        <button class="view-tab" data-view="agents">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            <span>Agents</span>
+                        </button>
+                    </div>
                     <div class="model-selector-container">
                         <label for="modelSelect" class="model-label">Model:</label>
                         <select id="modelSelect" class="model-select">
@@ -183,7 +147,9 @@
                 </div>
             </div>
 
-            <div class="chat-container" id="chatContainer">
+            <!-- Chat View -->
+            <div class="view-content active" id="chatView">
+                <div class="chat-container" id="chatContainer">
                 <div class="welcome-message">
                     <div class="welcome-icon">
                         <svg viewBox="0 0 24 24" fill="none">
@@ -201,9 +167,9 @@
                     <p>Your AI-powered coding assistant with Salesforce integration</p>
                     <p class="welcome-hint">Select an agent or skill from the sidebar to get started, or just type your question below.</p>
                 </div>
-            </div>
+                </div>
 
-            <div class="input-container">
+                <div class="input-container">
                 <div class="new-chat-wrapper">
                     <button class="new-chat-btn">
                         <svg viewBox="0 0 24 24" fill="none">
@@ -239,8 +205,207 @@
                     </span>
                     <span class="token-count">0 tokens used</span>
                 </div>
+                </div>
+            </div>
+
+            <!-- Agents View -->
+            <div class="view-content" id="agentsView">
+                <div class="agents-page">
+                    <div class="agents-page-header">
+                        <h1>Agent Management</h1>
+                        <button class="btn-primary" id="createAgentPageBtn">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            Create New Agent
+                        </button>
+                    </div>
+
+                    <div id="activeSchedulesPageAlert" style="display: none; padding: var(--spacing-md); background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; margin-bottom: var(--spacing-lg);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>⏱️ Active Schedules:</strong> <span id="activeSchedulesPageCount">0</span> agent(s) running on schedule
+                            </div>
+                            <button id="stopAllSchedulesPageBtn" class="btn-secondary" style="padding: 8px 16px;">Stop All Schedules</button>
+                        </div>
+                    </div>
+
+                    <div class="agents-grid" id="agentsGridView">
+                        <!-- Agents will be rendered here -->
+                    </div>
+                </div>
             </div>
         </main>
+    </div>
+
+    <!-- Service Connection Modal -->
+    <div class="modal" id="serviceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Service Connection</h2>
+                <button class="modal-close" id="closeServiceModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="service-templates">
+                    <h4>Quick Start Templates</h4>
+                    <div class="service-template-grid">
+                        <button type="button" class="service-template" data-service="airtable">
+                            <span class="service-icon">🗂️</span>
+                            <span class="service-name">Airtable</span>
+                        </button>
+                        <button type="button" class="service-template" data-service="salesforce">
+                            <span class="service-icon">☁️</span>
+                            <span class="service-name">Salesforce</span>
+                        </button>
+                        <button type="button" class="service-template" data-service="github">
+                            <span class="service-icon">🐙</span>
+                            <span class="service-name">GitHub</span>
+                        </button>
+                        <button type="button" class="service-template" data-service="slack">
+                            <span class="service-icon">💬</span>
+                            <span class="service-name">Slack</span>
+                        </button>
+                        <button type="button" class="service-template" data-service="custom">
+                            <span class="service-icon">🔧</span>
+                            <span class="service-name">Custom API</span>
+                        </button>
+                    </div>
+                </div>
+                <form id="serviceForm" style="display: none; margin-top: 2rem;">
+                    <input type="hidden" id="serviceType">
+                    <div class="form-group">
+                        <label for="serviceName">Connection Name *</label>
+                        <input type="text" id="serviceName" placeholder="e.g., My Airtable Base" required>
+                    </div>
+                    <div id="serviceFields"></div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancelServiceBtn">Cancel</button>
+                        <button type="button" class="btn-primary" id="saveServiceBtn">Add Connection</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Creation Modal -->
+    <div class="modal" id="agentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="agentModalTitle">Create Custom Agent</h2>
+                <button class="modal-close" id="closeAgentModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="agentForm">
+                    <!-- Agent Identity -->
+                    <div class="form-section">
+                        <h3>Agent Identity</h3>
+                        <div class="form-group">
+                            <label for="agentIcon">Icon</label>
+                            <div class="icon-picker">
+                                <button type="button" id="currentIcon" class="icon-display">🤖</button>
+                                <div id="iconPickerDropdown" class="icon-picker-dropdown" style="display: none;">
+                                    <div class="icon-picker-grid">
+                                        <button type="button" class="icon-option" data-icon="🤖">🤖</button>
+                                        <button type="button" class="icon-option" data-icon="🔧">🔧</button>
+                                        <button type="button" class="icon-option" data-icon="📊">📊</button>
+                                        <button type="button" class="icon-option" data-icon="📝">📝</button>
+                                        <button type="button" class="icon-option" data-icon="🔍">🔍</button>
+                                        <button type="button" class="icon-option" data-icon="💬">💬</button>
+                                        <button type="button" class="icon-option" data-icon="⚡">⚡</button>
+                                        <button type="button" class="icon-option" data-icon="🎯">🎯</button>
+                                        <button type="button" class="icon-option" data-icon="🚀">🚀</button>
+                                        <button type="button" class="icon-option" data-icon="💡">💡</button>
+                                        <button type="button" class="icon-option" data-icon="🎨">🎨</button>
+                                        <button type="button" class="icon-option" data-icon="📈">📈</button>
+                                        <button type="button" class="icon-option" data-icon="🔒">🔒</button>
+                                        <button type="button" class="icon-option" data-icon="🌟">🌟</button>
+                                        <button type="button" class="icon-option" data-icon="⚙️">⚙️</button>
+                                        <button type="button" class="icon-option" data-icon="📦">📦</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <small>Click to choose an icon for this agent</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="agentName">Agent Name *</label>
+                            <input type="text" id="agentName" placeholder="e.g., Database Expert" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="agentDescription">Description</label>
+                            <textarea id="agentDescription" rows="2" placeholder="What does this agent do?"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- What It Does -->
+                    <div class="form-section">
+                        <h3>What It Does</h3>
+                        <div class="form-group">
+                            <label for="agentPrompt">Default Task/Prompt *</label>
+                            <textarea id="agentPrompt" rows="4" placeholder="e.g., Review my code for bugs and security issues..." required></textarea>
+                            <small>What should this agent do when you use it?</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="agentModel">AI Model</label>
+                            <select id="agentModel">
+                                <option value="">Default (session model)</option>
+                                <option value="sonnet">Sonnet 4.6 (Balanced)</option>
+                                <option value="opus">Opus 4.8 (Most Capable)</option>
+                                <option value="haiku">Haiku 4.5 (Fast)</option>
+                                <option value="fable">Fable 5 (Latest)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Service Connections -->
+                    <div class="form-section">
+                        <h3>Service Connections</h3>
+                        <p class="form-hint">Connect this agent to external services and APIs</p>
+                        <div id="serviceConnections">
+                            <button type="button" class="btn-add-service" id="addServiceBtn">
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                Add Service Connection
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Scheduling -->
+                    <div class="form-section">
+                        <h3>Scheduling</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="agentScheduleEnabled">
+                                Run on a Schedule
+                            </label>
+                        </div>
+                        <div id="scheduleOptions" style="display: none;">
+                            <div class="form-group">
+                                <label>Run Every</label>
+                                <div class="schedule-input-group">
+                                    <input type="number" id="agentScheduleValue" min="1" value="1" style="width: 80px;">
+                                    <select id="agentScheduleUnit" style="width: 150px;">
+                                        <option value="minutes">Minutes</option>
+                                        <option value="hours">Hours</option>
+                                        <option value="days">Days</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="agentScheduleInput">Schedule Message</label>
+                                <textarea id="agentScheduleInput" rows="2" placeholder="What message to send when the agent runs..."></textarea>
+                                <small>Leave blank to use the default task</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancelAgentBtn">Cancel</button>
+                        <button type="submit" class="btn-primary" id="saveAgentBtn">Save Agent</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Settings Modal -->

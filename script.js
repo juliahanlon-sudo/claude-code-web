@@ -259,6 +259,36 @@ document.querySelector('.new-chat-btn').addEventListener('click', function() {
 // Initialize send button state
 sendBtn.disabled = true;
 
+// ========== VIEW SWITCHING ==========
+document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        const viewName = this.getAttribute('data-view');
+
+        // Update tab states
+        document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+
+        // Update view visibility
+        document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewName + 'View').classList.add('active');
+
+        // Render content based on view
+        if (viewName === 'agents') {
+            renderAgentsGrid();
+        } else if (viewName === 'skills') {
+            // Check if skills are loaded
+            if (allSkills && allSkills.length > 0) {
+                renderSkillsPage();
+            } else {
+                // Show loading and fetch skills
+                const grid = document.getElementById('skillsPageGrid');
+                grid.innerHTML = '<p style="text-align: center; color: var(--sf-gray-6); padding: var(--spacing-2xl);">Loading skills...</p>';
+                loadSkills();
+            }
+        }
+    });
+});
+
 // Load saved model preference
 const savedModel = Storage.get('selectedModel', 'sonnet');
 document.getElementById('modelSelect').value = savedModel;
@@ -369,114 +399,29 @@ function startAuthentication(service) {
 let allSkills = [];
 
 function loadSkills() {
+    console.log('Loading skills from API...');
     fetch(SKILLS_URL)
         .then(response => response.json())
         .then(data => {
             allSkills = data.skills || [];
-            displaySkills(allSkills);
+            console.log(`Loaded ${allSkills.length} skills`);
+            // Always render if Skills page is active
+            const skillsView = document.getElementById('skillsView');
+            if (skillsView && skillsView.classList.contains('active')) {
+                console.log('Rendering skills page...');
+                renderSkillsPage();
+            }
         })
         .catch(error => {
             console.error('Error loading skills:', error);
-            const skillsList = document.getElementById('skillsList');
-            skillsList.textContent = '';
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'skills-error';
-            errorDiv.textContent = 'Failed to load skills';
-            skillsList.appendChild(errorDiv);
+            const grid = document.getElementById('skillsPageGrid');
+            if (grid) {
+                grid.innerHTML = '<p style="text-align: center; color: var(--sf-error); padding: var(--spacing-2xl);">Failed to load skills: ' + error.message + '</p>';
+            }
         });
 }
 
-function displaySkills(skills) {
-    const skillsList = document.getElementById('skillsList');
-    skillsList.textContent = '';
-
-    if (skills.length === 0) {
-        const emptyDiv = document.createElement('div');
-        emptyDiv.className = 'skills-empty';
-        emptyDiv.textContent = 'No skills found';
-        skillsList.appendChild(emptyDiv);
-        return;
-    }
-
-    // Group skills by category
-    const grouped = skills.reduce((acc, skill) => {
-        const category = skill.category || 'general';
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(skill);
-        return acc;
-    }, {});
-
-    // Build DOM elements safely
-    Object.entries(grouped).forEach(([category, categorySkills]) => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'skill-category';
-
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'skill-category-header';
-
-        // Special styling for custom skills
-        if (category === 'my-skills') {
-            headerDiv.textContent = '⭐ My Skills';
-            headerDiv.style.background = 'linear-gradient(135deg, #0176D3, #1B96FF)';
-            headerDiv.style.color = 'white';
-        } else {
-            headerDiv.textContent = category;
-        }
-
-        categoryDiv.appendChild(headerDiv);
-
-        categorySkills.forEach(skill => {
-            const btn = document.createElement('button');
-            btn.className = 'skill-item';
-            btn.setAttribute('data-skill', skill.name);
-            btn.title = 'Click to use ' + skill.name;
-
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('viewBox', '0 0 24 24');
-            svg.setAttribute('fill', 'none');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', 'M13 2L3 14h9l-1 8 10-12h-9l1-8z');
-            path.setAttribute('stroke', 'currentColor');
-            path.setAttribute('stroke-width', '2');
-            path.setAttribute('stroke-linejoin', 'round');
-            svg.appendChild(path);
-
-            const span = document.createElement('span');
-            span.textContent = skill.displayName;
-
-            btn.appendChild(svg);
-            btn.appendChild(span);
-
-            btn.addEventListener('click', function() {
-                const skillName = this.getAttribute('data-skill');
-                messageInput.value = '/' + skillName + ' ';
-                messageInput.focus();
-                messageInput.dispatchEvent(new Event('input'));
-            });
-
-            categoryDiv.appendChild(btn);
-        });
-
-        skillsList.appendChild(categoryDiv);
-    });
-}
-
-// Skills search
-const skillsSearch = document.getElementById('skillsSearch');
-skillsSearch.addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    if (!query) {
-        displaySkills(allSkills);
-        return;
-    }
-
-    const filtered = allSkills.filter(skill =>
-        skill.name.toLowerCase().includes(query) ||
-        skill.displayName.toLowerCase().includes(query) ||
-        (skill.category && skill.category.toLowerCase().includes(query))
-    );
-    displaySkills(filtered);
-});
+// Old sidebar skills code removed - now using full Skills page
 
 // Load skills on page load
 loadSkills();
@@ -773,45 +718,648 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// ========== TABBED SECTION (AGENTS & SKILLS) ==========
-// Tab switching
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const tabName = this.getAttribute('data-tab');
+// ========== AGENTS SECTION ==========
+let customAgents = Storage.get('customAgents', []);
+let editingAgentId = null;
+let agentSchedules = {}; // Store active setInterval IDs
+let currentAgentIcon = '🤖';
+let currentAgentServices = [];
 
-        // Remove active class from all tabs and contents
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+// Helper function to generate agent type from name
+function generateAgentType(name) {
+    return name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single
+        .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+}
 
-        // Add active class to clicked tab and corresponding content
-        this.classList.add('active');
-        document.getElementById(tabName + 'Tab').classList.add('active');
+// Icon picker functionality
+document.getElementById('currentIcon').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const dropdown = document.getElementById('iconPickerDropdown');
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+});
 
-        // Save preference
-        Storage.set('activeTab', tabName);
+document.querySelectorAll('.icon-option').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const icon = this.getAttribute('data-icon');
+        currentAgentIcon = icon;
+        document.getElementById('currentIcon').textContent = icon;
+        document.getElementById('iconPickerDropdown').style.display = 'none';
     });
 });
 
-// Restore last active tab
-const savedTab = Storage.get('activeTab', 'agents');
-const savedTabBtn = document.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
-if (savedTabBtn) {
-    savedTabBtn.click();
+// Close icon picker when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.icon-picker')) {
+        document.getElementById('iconPickerDropdown').style.display = 'none';
+    }
+});
+
+// Service connection management
+const serviceTemplates = {
+    airtable: {
+        name: 'Airtable',
+        icon: '🗂️',
+        fields: [
+            { id: 'apiKey', label: 'API Key', type: 'password', placeholder: 'pat...', required: true },
+            { id: 'baseId', label: 'Base ID', type: 'text', placeholder: 'app...', required: true },
+            { id: 'tables', label: 'Table Names', type: 'text', placeholder: 'Table1, Table2' }
+        ]
+    },
+    salesforce: {
+        name: 'Salesforce',
+        icon: '☁️',
+        fields: [
+            { id: 'instanceUrl', label: 'Instance URL', type: 'text', placeholder: 'https://yourinstance.salesforce.com', required: true },
+            { id: 'accessToken', label: 'Access Token', type: 'password', required: true }
+        ]
+    },
+    github: {
+        name: 'GitHub',
+        icon: '🐙',
+        fields: [
+            { id: 'token', label: 'Personal Access Token', type: 'password', placeholder: 'ghp_...', required: true },
+            { id: 'repo', label: 'Repository', type: 'text', placeholder: 'owner/repo' }
+        ]
+    },
+    slack: {
+        name: 'Slack',
+        icon: '💬',
+        fields: [
+            { id: 'webhookUrl', label: 'Webhook URL', type: 'password', placeholder: 'https://hooks.slack.com/...', required: true },
+            { id: 'channel', label: 'Channel', type: 'text', placeholder: '#general' }
+        ]
+    },
+    custom: {
+        name: 'Custom API',
+        icon: '🔧',
+        fields: [
+            { id: 'url', label: 'API URL', type: 'text', placeholder: 'https://api.example.com', required: true },
+            { id: 'apiKey', label: 'API Key', type: 'password' },
+            { id: 'headers', label: 'Custom Headers (JSON)', type: 'textarea', placeholder: '{"Authorization": "Bearer ..."}' }
+        ]
+    }
+};
+
+// Add service connection button
+document.getElementById('addServiceBtn').addEventListener('click', () => {
+    document.getElementById('serviceModal').style.display = 'flex';
+    document.querySelector('.service-templates').style.display = 'block';
+    document.getElementById('serviceForm').style.display = 'none';
+});
+
+// Service template selection
+document.querySelectorAll('.service-template').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const serviceType = this.getAttribute('data-service');
+        const template = serviceTemplates[serviceType];
+
+        // Hide templates, show form
+        document.querySelector('.service-templates').style.display = 'none';
+        document.getElementById('serviceForm').style.display = 'block';
+        document.getElementById('serviceType').value = serviceType;
+
+        // Populate form fields
+        const fieldsContainer = document.getElementById('serviceFields');
+        fieldsContainer.innerHTML = '';
+
+        template.fields.forEach(field => {
+            const formGroup = document.createElement('div');
+            formGroup.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.setAttribute('for', 'service_' + field.id);
+            label.textContent = field.label + (field.required ? ' *' : '');
+
+            let input;
+            if (field.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.rows = 3;
+            } else {
+                input = document.createElement('input');
+                input.type = field.type;
+            }
+
+            input.id = 'service_' + field.id;
+            input.placeholder = field.placeholder || '';
+            if (field.required) input.required = true;
+
+            formGroup.appendChild(label);
+            formGroup.appendChild(input);
+            fieldsContainer.appendChild(formGroup);
+        });
+    });
+});
+
+// Save service connection
+document.getElementById('saveServiceBtn').addEventListener('click', () => {
+    const serviceType = document.getElementById('serviceType').value;
+    const template = serviceTemplates[serviceType];
+    const serviceName = document.getElementById('serviceName').value.trim();
+
+    if (!serviceName) {
+        alert('Please enter a connection name');
+        return;
+    }
+
+    // Collect field values
+    const config = {};
+    let hasError = false;
+
+    template.fields.forEach(field => {
+        const input = document.getElementById('service_' + field.id);
+        const value = input.value.trim();
+
+        if (field.required && !value) {
+            alert(`${field.label} is required`);
+            hasError = true;
+            return;
+        }
+
+        if (value) {
+            config[field.id] = value;
+        }
+    });
+
+    if (hasError) return;
+
+    // Add to current agent services
+    currentAgentServices.push({
+        id: Date.now().toString(),
+        type: serviceType,
+        name: serviceName,
+        icon: template.icon,
+        config: config
+    });
+
+    // Update UI
+    renderAgentServices();
+
+    // Close modal
+    document.getElementById('serviceModal').style.display = 'none';
+    document.getElementById('serviceForm').reset();
+});
+
+// Cancel service connection
+document.getElementById('cancelServiceBtn').addEventListener('click', () => {
+    document.getElementById('serviceModal').style.display = 'none';
+    document.getElementById('serviceForm').reset();
+});
+
+document.getElementById('closeServiceModalBtn').addEventListener('click', () => {
+    document.getElementById('serviceModal').style.display = 'none';
+});
+
+// Render agent services in the form
+function renderAgentServices() {
+    const container = document.getElementById('serviceConnections');
+
+    // Clear and re-add the add button
+    container.innerHTML = '';
+
+    // Add existing services
+    currentAgentServices.forEach(service => {
+        const item = document.createElement('div');
+        item.className = 'service-connection-item';
+        item.innerHTML = `
+            <div class="service-connection-info">
+                <div class="service-connection-icon">${service.icon}</div>
+                <div class="service-connection-details">
+                    <h4>${service.name}</h4>
+                    <p>${serviceTemplates[service.type].name}</p>
+                </div>
+            </div>
+            <button type="button" class="service-connection-remove" onclick="removeService('${service.id}')">Remove</button>
+        `;
+        container.appendChild(item);
+    });
+
+    // Add the "Add Service" button
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-add-service';
+    addBtn.id = 'addServiceBtn';
+    addBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Add Service Connection
+    `;
+    addBtn.addEventListener('click', () => {
+        document.getElementById('serviceModal').style.display = 'flex';
+        document.querySelector('.service-templates').style.display = 'block';
+        document.getElementById('serviceForm').style.display = 'none';
+    });
+    container.appendChild(addBtn);
 }
 
-// ========== AGENTS SECTION ==========
-document.querySelectorAll('.agent-item').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const agentType = this.getAttribute('data-agent');
-        const agentName = this.querySelector('span').textContent;
+// Remove service (global function for onclick)
+window.removeService = function(serviceId) {
+    currentAgentServices = currentAgentServices.filter(s => s.id !== serviceId);
+    renderAgentServices();
+};
 
-        // Add a message to the input with agent selection
-        messageInput.value = `@${agentType} `;
-        messageInput.focus();
-        messageInput.dispatchEvent(new Event('input'));
+// Open agent modal
+function openAgentModal(agent = null) {
+    const modal = document.getElementById('agentModal');
+    const title = document.getElementById('agentModalTitle');
+    const form = document.getElementById('agentForm');
 
-        addMessage(`Selected agent: ${agentName}`, 'assistant');
+    if (agent) {
+        // Edit mode
+        title.textContent = 'Edit Custom Agent';
+        document.getElementById('agentName').value = agent.name;
+        document.getElementById('agentDescription').value = agent.description || '';
+        document.getElementById('agentPrompt').value = agent.prompt;
+        document.getElementById('agentModel').value = agent.model || '';
+
+        // Icon
+        currentAgentIcon = agent.icon || '🤖';
+        document.getElementById('currentIcon').textContent = currentAgentIcon;
+
+        // Services
+        currentAgentServices = agent.services || [];
+        renderAgentServices();
+
+        // Schedule options
+        if (agent.schedule && agent.schedule.enabled) {
+            document.getElementById('agentScheduleEnabled').checked = true;
+            document.getElementById('agentScheduleValue').value = agent.schedule.value;
+            document.getElementById('agentScheduleUnit').value = agent.schedule.unit;
+            document.getElementById('agentScheduleInput').value = agent.schedule.input || '';
+            document.getElementById('scheduleOptions').style.display = 'block';
+        } else {
+            document.getElementById('agentScheduleEnabled').checked = false;
+            document.getElementById('scheduleOptions').style.display = 'none';
+        }
+    } else {
+        // Create mode
+        title.textContent = 'Create Custom Agent';
+        form.reset();
+        editingAgentId = null;
+        currentAgentIcon = '🤖';
+        document.getElementById('currentIcon').textContent = currentAgentIcon;
+        currentAgentServices = [];
+        renderAgentServices();
+        document.getElementById('scheduleOptions').style.display = 'none';
+    }
+
+    modal.style.display = 'flex';
+}
+
+// Close agent modal
+function closeAgentModal() {
+    document.getElementById('agentModal').style.display = 'none';
+    document.getElementById('agentForm').reset();
+    editingAgentId = null;
+}
+
+// Toggle schedule options
+document.getElementById('agentScheduleEnabled').addEventListener('change', function() {
+    document.getElementById('scheduleOptions').style.display = this.checked ? 'block' : 'none';
+});
+
+// Close modal buttons
+document.getElementById('closeAgentModalBtn').addEventListener('click', closeAgentModal);
+document.getElementById('cancelAgentBtn').addEventListener('click', closeAgentModal);
+
+// Close modal when clicking outside
+document.getElementById('agentModal').addEventListener('click', (e) => {
+    if (e.target.id === 'agentModal') {
+        closeAgentModal();
+    }
+});
+
+// Save agent form
+document.getElementById('agentForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById('agentName').value.trim();
+    const description = document.getElementById('agentDescription').value.trim();
+    const prompt = document.getElementById('agentPrompt').value.trim();
+    const model = document.getElementById('agentModel').value;
+
+    if (!name || !prompt) {
+        addMessage('✗ Please fill in all required fields', 'assistant');
+        return;
+    }
+
+    // Auto-generate type from name
+    const type = generateAgentType(name);
+
+    if (!type) {
+        addMessage('✗ Agent name must contain at least one letter or number', 'assistant');
+        return;
+    }
+
+    // Schedule settings
+    const scheduleEnabled = document.getElementById('agentScheduleEnabled').checked;
+    let schedule = null;
+
+    if (scheduleEnabled) {
+        const scheduleValue = parseInt(document.getElementById('agentScheduleValue').value);
+        const scheduleUnit = document.getElementById('agentScheduleUnit').value;
+        const scheduleInput = document.getElementById('agentScheduleInput').value.trim();
+
+        if (!scheduleValue || scheduleValue < 1) {
+            addMessage('✗ Schedule interval must be at least 1', 'assistant');
+            return;
+        }
+
+        schedule = {
+            enabled: true,
+            value: scheduleValue,
+            unit: scheduleUnit,
+            input: scheduleInput
+        };
+    }
+
+    const agent = {
+        id: editingAgentId || Date.now().toString(),
+        name,
+        type,
+        description,
+        prompt,
+        model,
+        icon: currentAgentIcon,
+        services: currentAgentServices,
+        schedule,
+        created: editingAgentId ? customAgents.find(a => a.id === editingAgentId).created : new Date().toISOString(),
+        modified: new Date().toISOString()
+    };
+
+    if (editingAgentId) {
+        // Update existing
+        const index = customAgents.findIndex(a => a.id === editingAgentId);
+        customAgents[index] = agent;
+        addMessage(`✓ Updated agent: ${name}`, 'assistant');
+    } else {
+        // Check for duplicate type (only for new agents, not when editing)
+        if (customAgents.some(a => a.type === type)) {
+            addMessage(`✗ An agent with a similar name already exists`, 'assistant');
+            return;
+        }
+        // Add new
+        customAgents.push(agent);
+        addMessage(`✓ Created agent: ${name}${schedule ? ' with schedule' : ''}`, 'assistant');
+    }
+
+    Storage.set('customAgents', customAgents);
+    renderAgentsGrid();
+    closeAgentModal();
+});
+
+// Setup agent schedules
+function setupAgentSchedules() {
+    // Clear all existing schedules
+    Object.values(agentSchedules).forEach(intervalId => clearInterval(intervalId));
+    agentSchedules = {};
+
+    // Setup schedules for agents with scheduling enabled
+    customAgents.forEach(agent => {
+        if (agent.schedule && agent.schedule.enabled) {
+            // Convert to milliseconds
+            let intervalMs;
+            switch (agent.schedule.unit) {
+                case 'minutes':
+                    intervalMs = agent.schedule.value * 60 * 1000;
+                    break;
+                case 'hours':
+                    intervalMs = agent.schedule.value * 60 * 60 * 1000;
+                    break;
+                case 'days':
+                    intervalMs = agent.schedule.value * 24 * 60 * 60 * 1000;
+                    break;
+                default:
+                    intervalMs = agent.schedule.value * 60 * 1000; // Default to minutes
+            }
+
+            // Don't allow intervals less than 1 minute for safety
+            if (intervalMs < 60000) {
+                console.warn(`Agent ${agent.name} schedule too frequent, minimum is 1 minute`);
+                intervalMs = 60000;
+            }
+
+            // Create the scheduled task
+            const intervalId = setInterval(() => {
+                console.log(`Running scheduled agent: ${agent.name}`);
+
+                // Construct the message to send
+                const message = agent.schedule.input || agent.prompt || `Run agent: ${agent.name}`;
+
+                // Add a system message
+                addMessage(`🤖 Scheduled: "${agent.name}" - ${message}`, 'assistant');
+
+                // Note: Scheduled agents are just for notifications now
+                // The actual agent execution would happen via the Claude Code CLI
+                // which this web interface doesn't directly control
+
+                console.log(`Scheduled agent ${agent.name} executed with message: ${message}`);
+
+            }, intervalMs);
+
+            agentSchedules[agent.id] = intervalId;
+            console.log(`Scheduled agent "${agent.name}" to run every ${agent.schedule.value} ${agent.schedule.unit}`);
+        }
     });
+
+    // Update the schedule alert
+    updatePageScheduleAlert();
+}
+
+
+// Render agents in grid view
+function renderAgentsGrid() {
+    const grid = document.getElementById('agentsGridView');
+    grid.innerHTML = '';
+
+    // Built-in agents
+    const builtInAgents = [
+        { name: 'General Purpose', type: 'general-purpose', description: 'Multi-step tasks and research', builtin: true },
+        { name: 'Code Explorer', type: 'Explore', description: 'Fast read-only code search', builtin: true },
+        { name: 'Code Reviewer', type: 'code-reviewer', description: 'Thorough code review', builtin: true },
+        { name: 'Researcher', type: 'aisuite:researcher', description: 'Internal Salesforce data research', builtin: true }
+    ];
+
+    // Render all agents
+    [...builtInAgents, ...customAgents].forEach(agent => {
+        const card = document.createElement('div');
+        card.className = 'agent-card';
+        if (!agent.builtin) card.classList.add('custom');
+        if (agent.schedule && agent.schedule.enabled) card.classList.add('scheduled');
+
+        const badges = [];
+        if (!agent.builtin) badges.push('<span class="agent-badge custom">⭐ Custom</span>');
+        if (agent.schedule && agent.schedule.enabled) {
+            badges.push(`<span class="agent-badge scheduled">⏱️ Scheduled</span>`);
+        }
+
+        const scheduleInfo = agent.schedule && agent.schedule.enabled
+            ? `<div class="agent-info-item">
+                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Runs every ${agent.schedule.value} ${agent.schedule.unit}
+               </div>`
+            : '';
+
+        const modelInfo = agent.model
+            ? `<div class="agent-info-item">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2"/></svg>
+                ${agent.model.charAt(0).toUpperCase() + agent.model.slice(1)}
+               </div>`
+            : '';
+
+        const actions = agent.builtin
+            ? `<button class="agent-card-btn primary" onclick="useAgent('${agent.type}', '${agent.name}')">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Use Agent
+               </button>`
+            : `<button class="agent-card-btn primary" onclick="useAgent('${agent.type}', '${agent.name}', '${agent.id}')">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Use
+               </button>
+               <button class="agent-card-btn" onclick="editAgentFromGrid('${agent.id}')">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/></svg>
+                Edit
+               </button>
+               <button class="agent-card-btn danger" onclick="deleteAgentFromGrid('${agent.id}', '${agent.name}')">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="2"/></svg>
+                Delete
+               </button>`;
+
+        const serviceInfo = agent.services && agent.services.length > 0
+            ? `<div class="agent-info-item" style="color: var(--sf-success);">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                ${agent.services.length} service${agent.services.length > 1 ? 's' : ''} connected
+               </div>`
+            : '';
+
+        card.innerHTML = `
+            <div class="agent-card-header">
+                <div class="agent-card-title">
+                    <div class="agent-card-icon" style="font-size: 24px;">
+                        ${agent.icon || '🤖'}
+                    </div>
+                    <div class="agent-card-name">
+                        <h3>${agent.name}</h3>
+                        <div class="agent-card-type">@${agent.type}</div>
+                    </div>
+                </div>
+                <div class="agent-card-badges">
+                    ${badges.join('')}
+                </div>
+            </div>
+            <div class="agent-card-body">
+                <div class="agent-card-description">
+                    ${agent.description || agent.prompt || 'No description'}
+                </div>
+                <div class="agent-card-info">
+                    ${serviceInfo}
+                    ${scheduleInfo}
+                    ${modelInfo}
+                </div>
+            </div>
+            <div class="agent-card-footer">
+                ${actions}
+            </div>
+        `;
+
+        grid.appendChild(card);
+    });
+
+    // Update schedule alert
+    updatePageScheduleAlert();
+}
+
+// Global functions for onclick handlers
+window.useAgent = function(type, name, id) {
+    // Switch to chat view
+    document.querySelector('.view-tab[data-view="chat"]').click();
+
+    // Find agent and use its prompt
+    const agent = customAgents.find(a => a.id === id);
+    if (agent && agent.prompt) {
+        messageInput.value = agent.prompt;
+    } else {
+        messageInput.value = `@${type} `;
+    }
+    messageInput.focus();
+    messageInput.dispatchEvent(new Event('input'));
+    addMessage(`Using agent: ${name}`, 'assistant');
+};
+
+window.editAgentFromGrid = function(id) {
+    const agent = customAgents.find(a => a.id === id);
+    if (agent) {
+        editingAgentId = id;
+        openAgentModal(agent);
+    }
+};
+
+window.deleteAgentFromGrid = function(id, name) {
+    if (confirm(`Delete agent "${name}"?`)) {
+        customAgents = customAgents.filter(a => a.id !== id);
+        Storage.set('customAgents', customAgents);
+        renderAgentsGrid();
+        addMessage(`✓ Deleted agent: ${name}`, 'assistant');
+    }
+};
+
+// Update page schedule alert
+function updatePageScheduleAlert() {
+    const activeCount = Object.keys(agentSchedules).length;
+    const alert = document.getElementById('activeSchedulesPageAlert');
+    const countSpan = document.getElementById('activeSchedulesPageCount');
+
+    if (activeCount > 0) {
+        alert.style.display = 'block';
+        countSpan.textContent = activeCount;
+    } else {
+        alert.style.display = 'none';
+    }
+}
+
+// Connect create agent button in page view
+document.getElementById('createAgentPageBtn').addEventListener('click', () => {
+    openAgentModal();
+});
+
+// Connect stop all button in page view
+document.getElementById('stopAllSchedulesPageBtn').addEventListener('click', () => {
+    if (confirm('Stop all scheduled agents? This will disable their schedules permanently.')) {
+        // Clear the intervals
+        Object.values(agentSchedules).forEach(intervalId => clearInterval(intervalId));
+        agentSchedules = {};
+
+        // Disable schedules in all agents
+        customAgents.forEach(agent => {
+            if (agent.schedule && agent.schedule.enabled) {
+                agent.schedule.enabled = false;
+            }
+        });
+
+        // Save the updated agents
+        Storage.set('customAgents', customAgents);
+
+        // Update the UI
+        updatePageScheduleAlert();
+        renderAgentsGrid();
+
+        addMessage('✓ All scheduled agents stopped and disabled', 'assistant');
+        console.log('All agent schedules stopped and disabled');
+    }
+});
+
+// Setup schedules on page load
+setupAgentSchedules();
+
+// Stop all schedules when page unloads
+window.addEventListener('beforeunload', () => {
+    Object.values(agentSchedules).forEach(intervalId => clearInterval(intervalId));
 });
 
 // ========== SETTINGS MODAL ==========
@@ -1096,4 +1644,149 @@ document.getElementById('clearAllDataBtn').addEventListener('click', () => {
             console.error('Error clearing data:', error);
         }
     }
+});
+
+// ========== SKILLS PAGE ==========
+function renderSkillsPage() {
+    console.log('renderSkillsPage called, allSkills:', allSkills ? allSkills.length : 'undefined');
+    const grid = document.getElementById('skillsPageGrid');
+    console.log('Grid element:', grid);
+
+    if (!grid) {
+        console.error('Could not find skillsPageGrid element!');
+        return;
+    }
+
+    grid.innerHTML = '';
+
+    if (!allSkills || allSkills.length === 0) {
+        console.log('No skills to display');
+        grid.innerHTML = '<p style="text-align: center; color: var(--sf-gray-6); padding: var(--spacing-2xl);">No skills loaded yet...</p>';
+        return;
+    }
+
+    console.log('Grouping and rendering skills...');
+
+    // Group skills by category
+    const grouped = allSkills.reduce((acc, skill) => {
+        const category = skill.category || 'general';
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(skill);
+        return acc;
+    }, {});
+
+    // Render each category
+    Object.entries(grouped).sort(([a], [b]) => {
+        if (a === 'my-skills') return -1;
+        if (b === 'my-skills') return 1;
+        return a.localeCompare(b);
+    }).forEach(([category, skills]) => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'skill-category-page';
+
+        const header = document.createElement('div');
+        header.className = 'skill-category-page-header';
+        if (category === 'my-skills') {
+            header.classList.add('my-skills');
+            header.textContent = '⭐ My Skills';
+        } else {
+            header.textContent = category;
+        }
+
+        const itemsGrid = document.createElement('div');
+        itemsGrid.className = 'skill-items-grid';
+
+        skills.forEach(skill => {
+            const card = document.createElement('div');
+            card.className = 'skill-card';
+            card.onclick = () => {
+                // Switch to chat and use skill
+                document.querySelector('.view-tab[data-view="chat"]').click();
+                messageInput.value = '/' + skill.name + ' ';
+                messageInput.focus();
+                messageInput.dispatchEvent(new Event('input'));
+            };
+
+            card.innerHTML = `
+                <div class="skill-card-icon">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="skill-card-info">
+                    <div class="skill-card-name">${skill.displayName}</div>
+                    <div class="skill-card-namespace">/${skill.name}</div>
+                </div>
+            `;
+
+            itemsGrid.appendChild(card);
+        });
+
+        categoryDiv.appendChild(header);
+        categoryDiv.appendChild(itemsGrid);
+        grid.appendChild(categoryDiv);
+    });
+}
+
+// Skills page search
+document.getElementById('skillsPageSearch').addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    if (!query) {
+        renderSkillsPage();
+        return;
+    }
+
+    const filtered = allSkills.filter(skill =>
+        skill.name.toLowerCase().includes(query) ||
+        skill.displayName.toLowerCase().includes(query) ||
+        (skill.category && skill.category.toLowerCase().includes(query))
+    );
+
+    // Render filtered
+    const grid = document.getElementById('skillsPageGrid');
+    grid.innerHTML = '';
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '<p style="text-align: center; color: var(--sf-gray-6); padding: var(--spacing-2xl);">No skills found</p>';
+        return;
+    }
+
+    const categoryDiv = document.createElement('div');
+    categoryDiv.className = 'skill-category-page';
+
+    const header = document.createElement('div');
+    header.className = 'skill-category-page-header';
+    header.textContent = `Search Results (${filtered.length})`;
+
+    const itemsGrid = document.createElement('div');
+    itemsGrid.className = 'skill-items-grid';
+
+    filtered.forEach(skill => {
+        const card = document.createElement('div');
+        card.className = 'skill-card';
+        card.onclick = () => {
+            document.querySelector('.view-tab[data-view="chat"]').click();
+            messageInput.value = '/' + skill.name + ' ';
+            messageInput.focus();
+            messageInput.dispatchEvent(new Event('input'));
+        };
+
+        card.innerHTML = `
+            <div class="skill-card-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="skill-card-info">
+                <div class="skill-card-name">${skill.displayName}</div>
+                <div class="skill-card-namespace">/${skill.name}</div>
+            </div>
+        `;
+
+        itemsGrid.appendChild(card);
+    });
+
+    categoryDiv.appendChild(header);
+    categoryDiv.appendChild(itemsGrid);
+    grid.appendChild(categoryDiv);
 });
