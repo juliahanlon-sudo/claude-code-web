@@ -302,29 +302,19 @@ const server = http.createServer((req, res) => {
             try {
                 const { message, model } = JSON.parse(body);
 
-                // Check if this is a skill invocation (starts with /)
-                let claudeArgs = [];
-                let inputMessage = message;
+                // Run non-interactively so the CLI produces output and exits,
+                // instead of launching the interactive terminal UI (which never
+                // returns and leaves the request hanging on "thinking").
+                let claudeArgs = ['--print'];
 
                 // Add model flag if specified
                 if (model) {
                     claudeArgs.push('--model', model);
                 }
 
-                if (message.trim().startsWith('/')) {
-                    // Extract skill name and arguments
-                    const parts = message.trim().split(/\s+/);
-                    const skillCommand = parts[0].substring(1); // Remove leading /
-                    const skillArgs = parts.slice(1).join(' ');
-
-                    // Use the skill directly as a CLI argument
-                    claudeArgs.push(skillCommand);
-                    if (skillArgs) {
-                        inputMessage = skillArgs;
-                    } else {
-                        inputMessage = '';
-                    }
-                }
+                // The full message (including a leading "/" for skill/slash
+                // commands) is passed as the prompt via stdin.
+                let inputMessage = message;
 
                 // Spawn Claude Code process
                 const claude = spawn('claude', claudeArgs, {
@@ -334,6 +324,31 @@ const server = http.createServer((req, res) => {
 
                 let response = '';
                 let errorOutput = '';
+                let responded = false;
+
+                // Always send exactly one response, no matter which event fires
+                // first. Without this guard a slow/failed call could leave the
+                // browser hanging on "thinking" forever.
+                const sendOnce = (statusCode, payload) => {
+                    if (responded) return;
+                    responded = true;
+                    clearTimeout(watchdog);
+                    res.writeHead(statusCode, {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    res.end(JSON.stringify(payload));
+                };
+
+                // Safety net: if the CLI never exits, kill it and reply so the
+                // request can't hang indefinitely.
+                const watchdog = setTimeout(() => {
+                    claude.kill('SIGTERM');
+                    sendOnce(504, {
+                        response: response || errorOutput,
+                        error: 'Claude Code timed out after 5 minutes. Please try again.'
+                    });
+                }, 5 * 60 * 1000);
 
                 claude.stdout.on('data', (data) => {
                     response += data.toString();
@@ -343,6 +358,17 @@ const server = http.createServer((req, res) => {
                     errorOutput += data.toString();
                 });
 
+                // If `claude` isn't installed / not on PATH, spawn emits 'error'
+                // and 'close' never fires — handle it so we don't hang.
+                claude.on('error', (spawnError) => {
+                    sendOnce(500, {
+                        response: '',
+                        error: spawnError.code === 'ENOENT'
+                            ? "Could not find the 'claude' command. Make sure Claude Code CLI is installed and on your PATH."
+                            : `Failed to start Claude Code: ${spawnError.message}`
+                    });
+                });
+
                 // Send the message to Claude if there's input
                 if (inputMessage) {
                     claude.stdin.write(inputMessage + '\n');
@@ -350,15 +376,10 @@ const server = http.createServer((req, res) => {
                 claude.stdin.end();
 
                 claude.on('close', (code) => {
-                    res.writeHead(200, {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    });
-
-                    res.end(JSON.stringify({
+                    sendOnce(200, {
                         response: response || errorOutput,
                         error: code !== 0 ? errorOutput : null
-                    }));
+                    });
                 });
 
             } catch (error) {
