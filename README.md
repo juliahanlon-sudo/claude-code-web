@@ -35,16 +35,26 @@ A custom web interface for Claude Code with Salesforce Lightning Design System b
 
 ## Prerequisites
 
-- Node.js installed
-- Claude Code CLI (`claude`) installed and in PATH
-- Salesforce CLI (`sf`) for Salesforce authentication
-- MCP Adaptor (`mcp-adaptor`) for Google Workspace authentication
+Each person runs this on **their own machine with their own logins** — the server
+launches the `claude` CLI locally using whatever credentials are on that computer.
+Nothing is shared centrally.
+
+You need these installed and available on your `PATH`:
+
+| Tool | Check it's installed | If missing |
+|------|----------------------|------------|
+| **Node.js** (v18+) | `node --version` | [nodejs.org](https://nodejs.org) |
+| **Claude Code CLI** | `claude --version` | [Install guide](https://docs.claude.com/en/docs/claude-code/overview) |
+| **Salesforce CLI** *(optional — only for SF auth)* | `sf --version` | [Install guide](https://developer.salesforce.com/tools/salesforcecli) |
+| **MCP Adaptor** *(optional — only for Google auth)* | `mcp-adaptor status` | Internal tooling |
+
+> No `npm install` is required — the server uses only built-in Node modules.
 
 ## Getting Started
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/juliahanlon-sudo/claude-code-web.git
    cd claude-code-web
    ```
 
@@ -54,13 +64,15 @@ A custom web interface for Claude Code with Salesforce Lightning Design System b
    ```
 
 3. **Open in browser**
-   ```
-   http://localhost:3000
-   ```
 
-4. **Authenticate services**
-   - Click "SF" badge to authenticate with Salesforce
-   - Click "Google" badge to authenticate with Google Workspace/MCP
+   http://localhost:3000
+
+4. **Authenticate services** (optional)
+   - Click the "SF" badge to authenticate with Salesforce
+   - Click the "Google" badge to authenticate with Google Workspace/MCP
+
+> **Port 3000 already in use?** Something else is running there. Stop that process,
+> or change `const PORT = 3000;` near the top of `server.js`.
 
 ## How It Works
 
