@@ -163,7 +163,21 @@ claude-code-web/
 
 ## Security Notes
 
-- Server spawns Claude Code CLI processes with user's environment
+> ⚠️ **Run this locally only — never on a shared or public server.**
+>
+> The server runs Claude Code with `--permission-mode bypassPermissions` so it
+> can actually create files, run commands, and launch things (without this it
+> could only *describe* actions, not perform them). That means **anyone who can
+> reach the web interface can make Claude run any command on the host machine,
+> with no approval prompt** — using that machine's credentials.
+>
+> This is safe under the intended model: **each person runs their own copy on
+> their own machine.** Do **not** expose it to a network or host it for others
+> — there is no authentication on the server itself.
+
+- Server spawns Claude Code CLI processes with the user's environment and credentials
+- Runs non-interactively (`--print`) with `bypassPermissions` so tools work without a prompt
+- Each conversation gets its own Claude Code session (`--session-id` / `--resume`) for context memory
 - Authentication happens through official CLI tools (sf, mcp-adaptor)
 - No credentials stored in the web interface
 - Uses `execFile` instead of `exec` to prevent command injection

@@ -1928,3 +1928,39 @@ body {
     font-weight: 600;
     color: var(--sf-gray-10);
 }
+
+/* Thinking indicator — animated spinner + live status line */
+.thinking-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--sf-gray-6);
+    font-style: italic;
+}
+
+.thinking-spinner {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--sf-blue-lighter);
+    border-top-color: var(--sf-blue);
+    border-radius: 50%;
+    animation: thinking-spin 0.7s linear infinite;
+}
+
+.thinking-elapsed {
+    font-variant-numeric: tabular-nums;
+    color: var(--sf-gray-6);
+    opacity: 0.75;
+}
+
+@keyframes thinking-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .thinking-spinner {
+        animation-duration: 2s;
+    }
+}

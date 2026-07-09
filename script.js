@@ -104,8 +104,16 @@ function sendMessage() {
     // Get selected model
     const selectedModel = document.getElementById('modelSelect').value;
 
-    // Send to Claude Code via local server
-    addMessage('Thinking...', 'assistant', true);
+    // Maintain one Claude Code session per conversation so it remembers
+    // context across messages. First message of a conversation starts a new
+    // session; later messages resume it.
+    const isNewSession = !currentSessionId;
+    if (isNewSession) {
+        currentSessionId = crypto.randomUUID();
+    }
+
+    // Show an animated thinking indicator so it's clear work is happening
+    const thinking = startThinkingIndicator();
 
     fetch(API_URL, {
         method: 'POST',
@@ -114,16 +122,14 @@ function sendMessage() {
         },
         body: JSON.stringify({
             message,
-            model: selectedModel
+            model: selectedModel,
+            sessionId: currentSessionId,
+            resume: !isNewSession
         })
     })
     .then(response => response.json())
     .then(data => {
-        // Remove "Thinking..." message
-        const thinkingMsg = chatContainer.querySelector('.message-thinking');
-        if (thinkingMsg) {
-            thinkingMsg.remove();
-        }
+        thinking.stop();
 
         if (data.error) {
             addMessage('Error: ' + data.error, 'assistant');
@@ -132,14 +138,73 @@ function sendMessage() {
         }
     })
     .catch(error => {
-        // Remove "Thinking..." message
-        const thinkingMsg = chatContainer.querySelector('.message-thinking');
-        if (thinkingMsg) {
-            thinkingMsg.remove();
-        }
+        thinking.stop();
         addMessage('Connection error. Make sure the server is running with: node server.js', 'assistant');
         console.error('Error:', error);
     });
+}
+
+// Animated "thinking" indicator: a spinner with a status line that cycles
+// through what's happening and shows elapsed time, so the user never wonders
+// whether it's stuck. Returns a handle with stop() to remove it.
+function startThinkingIndicator() {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message message-assistant message-thinking';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2"/>
+        </svg>
+    `;
+    avatar.style.background = '#F3F3F3';
+    avatar.style.color = '#0176D3';
+
+    const content = document.createElement('div');
+    content.className = 'message-content thinking-content';
+    content.innerHTML = `
+        <span class="thinking-spinner" aria-hidden="true"></span>
+        <span class="thinking-status">Thinking</span>
+        <span class="thinking-elapsed"></span>
+    `;
+
+    messageDiv.appendChild(avatar);
+    messageDiv.appendChild(content);
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    const statusEl = content.querySelector('.thinking-status');
+    const elapsedEl = content.querySelector('.thinking-elapsed');
+
+    // Status messages escalate over time so it stays reassuring on long runs
+    const stages = [
+        { after: 0,  text: 'Sending to Claude Code' },
+        { after: 3,  text: 'Claude is thinking' },
+        { after: 10, text: 'Working on your request' },
+        { after: 25, text: 'Still working — complex requests can take a bit' },
+        { after: 60, text: 'Hang tight, this is a long one' }
+    ];
+
+    const startTime = Date.now();
+    const tick = () => {
+        const seconds = Math.floor((Date.now() - startTime) / 1000);
+        let label = stages[0].text;
+        for (const stage of stages) {
+            if (seconds >= stage.after) label = stage.text;
+        }
+        statusEl.textContent = label;
+        elapsedEl.textContent = seconds > 0 ? ` · ${seconds}s` : '';
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+
+    return {
+        stop() {
+            clearInterval(timer);
+            messageDiv.remove();
+        }
+    };
 }
 
 function renderMarkdown(text) {
@@ -232,9 +297,10 @@ document.querySelector('.new-chat-btn').addEventListener('click', function() {
         saveCurrentConversation();
     }
 
-    // Start fresh conversation
+    // Start fresh conversation (new Claude Code session too)
     currentConversationId = null;
     currentMessages = [];
+    currentSessionId = null;
     chatContainer.innerHTML = `
         <div class="welcome-message">
             <div class="welcome-icon">
@@ -573,6 +639,8 @@ displayProjects();
 let conversations = Storage.get('conversations', []);
 let currentConversationId = null;
 let currentMessages = [];
+// Claude Code session id for the active conversation (enables context memory)
+let currentSessionId = null;
 
 function saveCurrentConversation() {
     // Validate currentMessages
@@ -590,6 +658,7 @@ function saveCurrentConversation() {
             id: currentConversationId || Date.now().toString(),
             title: title,
             messages: currentMessages,
+            sessionId: currentSessionId,
             date: new Date().toISOString()
         };
 
@@ -681,6 +750,8 @@ function loadConversation(id) {
 
         currentConversationId = id;
         currentMessages = conversation.messages;
+        // Restore the Claude Code session so resuming keeps its memory
+        currentSessionId = conversation.sessionId || null;
 
         console.log(`Loading conversation ${id} with ${currentMessages.length} messages`);
 

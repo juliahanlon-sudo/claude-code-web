@@ -300,12 +300,34 @@ const server = http.createServer((req, res) => {
 
         req.on('end', async () => {
             try {
-                const { message, model } = JSON.parse(body);
+                const { message, model, sessionId, resume } = JSON.parse(body);
 
                 // Run non-interactively so the CLI produces output and exits,
                 // instead of launching the interactive terminal UI (which never
                 // returns and leaves the request hanging on "thinking").
-                let claudeArgs = ['--print'];
+                //
+                // bypassPermissions lets Claude actually use its tools (Write,
+                // Edit, Bash, etc.) without an interactive approval prompt —
+                // there's no terminal here to answer one, so without this the
+                // model can only *describe* actions like "create and open a
+                // website" instead of performing them. This runs tools on the
+                // host machine with no gate, which is why this app is meant to
+                // be run locally by each user on their own machine.
+                let claudeArgs = ['--print', '--permission-mode', 'bypassPermissions'];
+
+                // Maintain conversation memory across messages. The frontend
+                // sends one session id per conversation: start it on the first
+                // message, resume it thereafter so Claude remembers context.
+                // Only accept well-formed UUIDs to keep it off the arg list safely.
+                const isUuid = typeof sessionId === 'string' &&
+                    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(sessionId);
+                if (isUuid) {
+                    if (resume) {
+                        claudeArgs.push('--resume', sessionId);
+                    } else {
+                        claudeArgs.push('--session-id', sessionId);
+                    }
+                }
 
                 // Add model flag if specified
                 if (model) {
