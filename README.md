@@ -74,6 +74,32 @@ You need these installed and available on your `PATH`:
 > **Port 3000 already in use?** Something else is running there. Stop that process,
 > or change `const PORT = 3000;` near the top of `server.js`.
 
+## Sharing with Your Team
+
+**Share the code, not your running server.** Each coworker should clone this repo
+and run their own `node server.js`. That way everyone gets their own data, under
+their own logins:
+
+| What they'll see | Where it comes from |
+|------------------|---------------------|
+| **Chats & history** | Their own browser (stored in `localStorage`, per-browser) |
+| **Custom agents** | Their own browser (`localStorage`) |
+| **Favorites & projects** | Their own browser (`localStorage`) |
+| **Skills** | Their own `~/.claude` folder (scanned by *their* server) |
+| **Chat/agent execution & auth** | Their own machine, their own SF/Google logins |
+
+Nothing of yours is exposed, and their chats/agents/skills are entirely their own.
+
+> ⚠️ **Do NOT give coworkers a link to your own running server** (e.g. your IP or a
+> tunneled `localhost`). The server has **no authentication** and runs `claude`,
+> `sf`, and `mcp-adaptor` **as you, with your credentials and file access** — so a
+> shared link is effectively a remote shell on your machine. To prevent this, the
+> server binds to `127.0.0.1` and **rejects non-local connections by default**.
+>
+> If you have a genuine reason to expose it (trusted network + your own auth layer
+> in front), start it with `ALLOW_REMOTE=1 node server.js`. Only do this if you
+> understand the risk.
+
 ## How It Works
 
 ### Architecture

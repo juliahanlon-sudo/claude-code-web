@@ -12,6 +12,19 @@ const { spawn, execFile } = require('child_process');
 
 const PORT = 3000;
 
+// Security: this server runs the local `claude`/`sf`/`mcp-adaptor` CLIs as the
+// user who started it, using their credentials and file access. It has no auth,
+// so it must never be exposed to other machines. By default we bind to loopback
+// only and reject any non-local connection. Set ALLOW_REMOTE=1 to override
+// (only do this behind a trusted network + your own auth layer).
+const ALLOW_REMOTE = process.env.ALLOW_REMOTE === '1';
+const HOST = ALLOW_REMOTE ? '0.0.0.0' : '127.0.0.1';
+
+function isLocalConnection(req) {
+    const addr = req.socket.remoteAddress || '';
+    return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+}
+
 // MIME types for serving files
 const MIME_TYPES = {
     '.html': 'text/html',
@@ -25,6 +38,13 @@ const MIME_TYPES = {
 
 // Create HTTP server
 const server = http.createServer((req, res) => {
+    // Security gate: reject non-local connections unless explicitly allowed.
+    if (!ALLOW_REMOTE && !isLocalConnection(req)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden: this server only accepts local connections. Each user should run their own instance. See README.');
+        return;
+    }
+
     // Handle skills list endpoint
     if (req.url === '/api/skills' && req.method === 'GET') {
         const { execSync } = require('child_process');
@@ -300,7 +320,27 @@ const server = http.createServer((req, res) => {
 
         req.on('end', async () => {
             try {
-                const { message, model, sessionId, resume } = JSON.parse(body);
+                const { message, model, sessionId, resume, cwd } = JSON.parse(body);
+
+                // Resolve the working directory for this run. The frontend can
+                // send a project path (e.g. "~/Desktop/spaceplan"); expand a
+                // leading "~" and only honor it if it's a real directory,
+                // otherwise fall back to $HOME. This keeps a bad/missing path
+                // from crashing the spawn.
+                let workingDir = process.env.HOME;
+                if (typeof cwd === 'string' && cwd.trim()) {
+                    let candidate = cwd.trim();
+                    if (candidate === '~' || candidate.startsWith('~/')) {
+                        candidate = path.join(process.env.HOME, candidate.slice(1));
+                    }
+                    try {
+                        if (path.isAbsolute(candidate) && fs.statSync(candidate).isDirectory()) {
+                            workingDir = candidate;
+                        }
+                    } catch (e) {
+                        // Non-existent path — keep the $HOME default.
+                    }
+                }
 
                 // Run non-interactively so the CLI produces output and exits,
                 // instead of launching the interactive terminal UI (which never
@@ -340,7 +380,7 @@ const server = http.createServer((req, res) => {
 
                 // Spawn Claude Code process
                 const claude = spawn('claude', claudeArgs, {
-                    cwd: process.env.HOME,
+                    cwd: workingDir,
                     env: process.env
                 });
 
@@ -438,7 +478,14 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
     console.log(`\n🚀 Claude Code Web Interface running at http://localhost:${PORT}\n`);
     console.log(`Open your browser to: http://localhost:${PORT}\n`);
+    if (ALLOW_REMOTE) {
+        console.log('⚠️  ALLOW_REMOTE is set — this server accepts connections from other machines.');
+        console.log('   It runs CLIs as YOU with YOUR credentials and has no auth. Use only on a trusted network.\n');
+    } else {
+        console.log('🔒 Local-only mode: connections are restricted to this machine.');
+        console.log('   To let a coworker use their own data, have them clone the repo and run their own instance.\n');
+    }
 });

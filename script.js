@@ -124,7 +124,8 @@ function sendMessage() {
             message,
             model: selectedModel,
             sessionId: currentSessionId,
-            resume: !isNewSession
+            resume: !isNewSession,
+            cwd: currentWorkingDir
         })
     })
     .then(response => response.json())
@@ -341,16 +342,6 @@ document.querySelectorAll('.view-tab').forEach(tab => {
         // Render content based on view
         if (viewName === 'agents') {
             renderAgentsGrid();
-        } else if (viewName === 'skills') {
-            // Check if skills are loaded
-            if (allSkills && allSkills.length > 0) {
-                renderSkillsPage();
-            } else {
-                // Show loading and fetch skills
-                const grid = document.getElementById('skillsPageGrid');
-                grid.innerHTML = '<p style="text-align: center; color: var(--sf-gray-6); padding: var(--spacing-2xl);">Loading skills...</p>';
-                loadSkills();
-            }
         }
     });
 });
@@ -471,18 +462,14 @@ function loadSkills() {
         .then(data => {
             allSkills = data.skills || [];
             console.log(`Loaded ${allSkills.length} skills`);
-            // Always render if Skills page is active
-            const skillsView = document.getElementById('skillsView');
-            if (skillsView && skillsView.classList.contains('active')) {
-                console.log('Rendering skills page...');
-                renderSkillsPage();
-            }
+            // Skills live in the sidebar, so always render
+            renderSkillsPage();
         })
         .catch(error => {
             console.error('Error loading skills:', error);
-            const grid = document.getElementById('skillsPageGrid');
-            if (grid) {
-                grid.innerHTML = '<p style="text-align: center; color: var(--sf-error); padding: var(--spacing-2xl);">Failed to load skills: ' + error.message + '</p>';
+            const list = document.getElementById('skillsList');
+            if (list) {
+                list.innerHTML = '<div class="skills-error">Failed to load skills: ' + error.message + '</div>';
             }
         });
 }
@@ -492,67 +479,73 @@ function loadSkills() {
 // Load skills on page load
 loadSkills();
 
-// ========== FAVORITE PROMPTS ==========
+// ========== FAVORITE PROMPTS (retired) ==========
+// The Favorite Prompts UI was removed. We still read/keep the stored data so
+// existing exports/imports remain compatible, but there's no longer any UI.
 let favoritePrompts = Storage.get('favoritePrompts', []);
 
-function displayFavorites() {
-    const favoritesList = document.getElementById('favoritesList');
-    favoritesList.textContent = '';
-
-    if (favoritePrompts.length === 0) {
-        const emptyDiv = document.createElement('div');
-        emptyDiv.className = 'favorites-empty';
-        emptyDiv.textContent = 'No favorites yet. Click + to add.';
-        favoritesList.appendChild(emptyDiv);
-        return;
+// ========== RECENT PROJECTS ==========
+// Curated list of the user's main projects. Seeded on first load; users can
+// still add/remove their own via the + button.
+// `cwd` is the actual working directory Claude runs in for that project.
+// Leave it empty for non-directory projects (e.g. a skill), which fall back
+// to the home directory.
+const DEFAULT_PROJECTS = [
+    {
+        name: 'Space Calculator',
+        location: '~/Desktop/spaceplan',
+        cwd: '~/Desktop/spaceplan',
+        prompt: 'Help me work on the Space Planning Calculator'
+    },
+    {
+        name: 'Project Data Pull',
+        location: '~/Desktop/standards-agent (standards checker)',
+        cwd: '~/Desktop/standards-agent',
+        prompt: 'Help me work on the project data pull / standards checker'
+    },
+    {
+        name: 'Claude Code Web Interface',
+        location: '~/claude-code-web',
+        cwd: '~/claude-code-web',
+        prompt: 'Help me work on the Claude Code Web Interface'
+    },
+    {
+        name: 'Photo Renamer',
+        location: 'Skill',
+        cwd: '',
+        prompt: 'Use the photo renamer skill'
     }
+];
 
-    favoritePrompts.forEach((fav, index) => {
-        const favItem = document.createElement('div');
-        favItem.className = 'favorite-item';
-
-        const textBtn = document.createElement('button');
-        textBtn.className = 'favorite-text';
-        textBtn.textContent = fav.name;
-        textBtn.title = fav.prompt;
-        textBtn.addEventListener('click', () => {
-            messageInput.value = fav.prompt;
-            messageInput.focus();
-            messageInput.dispatchEvent(new Event('input'));
-        });
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.title = 'Remove favorite';
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            favoritePrompts.splice(index, 1);
-            Storage.set('favoritePrompts', favoritePrompts);
-            displayFavorites();
-        });
-
-        favItem.appendChild(textBtn);
-        favItem.appendChild(deleteBtn);
-        favoritesList.appendChild(favItem);
-    });
+let recentProjects = Storage.get('recentProjects', null);
+if (recentProjects === null || recentProjects.length === 0) {
+    // First run (or empty/cleared storage): seed the curated projects.
+    recentProjects = DEFAULT_PROJECTS.map(p => ({ ...p, date: '' }));
+    Storage.set('recentProjects', recentProjects);
 }
 
-document.getElementById('addFavoriteBtn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    const name = prompt('Enter a name for this favorite:');
-    if (!name) return;
+// The directory Claude Code actually runs in. Empty string = home directory.
+// Persisted so it survives reloads, and shown in the input footer.
+let currentWorkingDir = Storage.get('currentWorkingDir', '');
 
-    const promptText = prompt('Enter the prompt text:');
-    if (!promptText) return;
+function setWorkingDir(dir, label) {
+    currentWorkingDir = dir || '';
+    Storage.set('currentWorkingDir', currentWorkingDir);
+    updateWorkingDirDisplay(label);
+    if (typeof displayProjects === 'function') displayProjects();
+}
 
-    favoritePrompts.push({ name, prompt: promptText });
-    Storage.set('favoritePrompts', favoritePrompts);
-    displayFavorites();
-});
-
-// ========== RECENT PROJECTS ==========
-let recentProjects = Storage.get('recentProjects', []);
+function updateWorkingDirDisplay(label) {
+    const el = document.getElementById('workingDirText');
+    if (!el) return;
+    el.textContent = currentWorkingDir || '~';
+    const info = document.getElementById('workingDirInfo');
+    if (info) {
+        info.title = currentWorkingDir
+            ? `Claude runs in ${currentWorkingDir}${label ? ' (' + label + ')' : ''} — click to reset to home`
+            : 'Working directory: home (~) — click a project to change it';
+    }
+}
 
 function displayProjects() {
     const projectsList = document.getElementById('projectsList');
@@ -566,7 +559,7 @@ function displayProjects() {
         return;
     }
 
-    recentProjects.slice(0, 5).forEach((project, index) => {
+    recentProjects.slice(0, 10).forEach((project, index) => {
         const projectItem = document.createElement('div');
         projectItem.className = 'project-item';
 
@@ -584,9 +577,19 @@ function displayProjects() {
         projectBtn.appendChild(projectName);
         projectBtn.appendChild(projectMeta);
 
+        // Mark the active project so its card is highlighted
+        if (project.cwd && project.cwd === currentWorkingDir) {
+            projectItem.classList.add('active-project');
+        }
+
         projectBtn.addEventListener('click', () => {
-            messageInput.value = `Tell me about the ${project.name} project` +
-                (project.location ? ` in ${project.location}` : '');
+            // Set the working directory Claude runs in for this project so it
+            // actually operates on that codebase (not just chats about it).
+            setWorkingDir(project.cwd || '', project.name);
+
+            messageInput.value = project.prompt ||
+                (`Tell me about the ${project.name} project` +
+                 (project.location ? ` in ${project.location}` : ''));
             messageInput.focus();
             messageInput.dispatchEvent(new Event('input'));
         });
@@ -613,11 +616,14 @@ document.getElementById('addProjectBtn').addEventListener('click', (e) => {
     const name = prompt('Enter project name:');
     if (!name) return;
 
-    const location = prompt('Enter location (building/floor):');
+    const location = prompt('Enter location or path (optional):');
 
     const project = {
         name,
         location: location || '',
+        prompt: location
+            ? `Help me work on the ${name} project in ${location}`
+            : `Help me work on the ${name} project`,
         date: new Date().toISOString()
     };
 
@@ -631,9 +637,65 @@ document.getElementById('addProjectBtn').addEventListener('click', (e) => {
     displayProjects();
 });
 
-// Load favorites and projects on page load
-displayFavorites();
+// Turn the current chat into a project. Captures the working directory Claude
+// is currently running in (so clicking the project later drops you right back
+// into that codebase) and seeds a prompt from the conversation.
+function saveChatAsProject() {
+    // Suggest a name from the conversation title or the working dir's folder.
+    const currentConv = conversations.find(c => c.id === currentConversationId);
+    const dirLeaf = currentWorkingDir
+        ? currentWorkingDir.replace(/\/+$/, '').split('/').pop()
+        : '';
+    const suggested = (currentConv && currentConv.title) || dirLeaf || '';
+
+    const name = prompt('Save this chat as a project.\n\nProject name:', suggested);
+    if (!name) return;
+
+    // Don't create a duplicate of a project already pointing at this directory.
+    const existing = recentProjects.find(
+        p => (p.cwd || '') === (currentWorkingDir || '') && p.name === name
+    );
+    if (existing) {
+        addMessage(`Project "${name}" already exists for this directory.`, 'assistant');
+        return;
+    }
+
+    const firstUserMsg = currentMessages.find(m => m && m.role === 'user' && m.text);
+
+    const project = {
+        name,
+        location: currentWorkingDir || 'home (~)',
+        cwd: currentWorkingDir || '',
+        prompt: firstUserMsg
+            ? firstUserMsg.text
+            : `Help me work on the ${name} project`,
+        date: new Date().toISOString()
+    };
+
+    recentProjects.unshift(project);
+    if (recentProjects.length > 10) {
+        recentProjects = recentProjects.slice(0, 10);
+    }
+    Storage.set('recentProjects', recentProjects);
+    displayProjects();
+
+    addMessage(
+        `✓ Saved "${name}" to My Projects` +
+        (currentWorkingDir ? ` (${currentWorkingDir})` : ' (home directory)') + '.',
+        'assistant'
+    );
+}
+
+// Load projects on page load
 displayProjects();
+updateWorkingDirDisplay();
+
+// Click the working-dir chip to reset back to the home directory
+const workingDirInfo = document.getElementById('workingDirInfo');
+if (workingDirInfo) {
+    workingDirInfo.style.cursor = 'pointer';
+    workingDirInfo.addEventListener('click', () => setWorkingDir('', null));
+}
 
 // ========== CONVERSATION HISTORY ==========
 let conversations = Storage.get('conversations', []);
@@ -1435,11 +1497,12 @@ window.addEventListener('beforeunload', () => {
 
 // ========== SETTINGS MODAL ==========
 const settingsModal = document.getElementById('settingsModal');
-const settingsBtn = document.querySelector('.settings-btn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 
-// Open settings modal
-document.querySelector('.settings-btn').addEventListener('click', () => {
+// Open settings modal from the three-dots menu
+document.getElementById('openSettingsMenuBtn').addEventListener('click', () => {
+    const moreMenu = document.getElementById('moreMenu');
+    if (moreMenu) moreMenu.classList.remove('show');
     settingsModal.style.display = 'flex';
 });
 
@@ -1502,9 +1565,9 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
             const data = JSON.parse(event.target.result);
 
             if (data.favoritePrompts) {
+                // Favorites UI is retired, but keep imported data for compatibility.
                 favoritePrompts = data.favoritePrompts;
                 Storage.set('favoritePrompts', favoritePrompts);
-                displayFavorites();
             }
 
             if (data.recentProjects) {
@@ -1599,6 +1662,12 @@ document.addEventListener('click', () => {
     moreMenu.classList.remove('show');
 });
 
+// Save current chat as a project
+document.getElementById('saveAsProjectBtn').addEventListener('click', () => {
+    moreMenu.classList.remove('show');
+    saveChatAsProject();
+});
+
 // Copy last response
 document.getElementById('copyLastResponseBtn').addEventListener('click', () => {
     const messages = chatContainer.querySelectorAll('.message-assistant');
@@ -1686,7 +1755,6 @@ document.getElementById('clearAllDataBtn').addEventListener('click', () => {
             recentProjects = [];
 
             displayConversations();
-            displayFavorites();
             displayProjects();
 
             chatContainer.innerHTML = `
@@ -1718,146 +1786,103 @@ document.getElementById('clearAllDataBtn').addEventListener('click', () => {
 });
 
 // ========== SKILLS PAGE ==========
-function renderSkillsPage() {
-    console.log('renderSkillsPage called, allSkills:', allSkills ? allSkills.length : 'undefined');
-    const grid = document.getElementById('skillsPageGrid');
-    console.log('Grid element:', grid);
+// Build a single skill item button for the sidebar list
+function createSkillItem(skill) {
+    const item = document.createElement('button');
+    item.className = 'skill-item';
+    if (skill.isCustom) item.classList.add('custom-skill');
+    item.title = '/' + skill.name;
+    item.onclick = () => {
+        // Switch to chat and prefill the skill command
+        const chatTab = document.querySelector('.view-tab[data-view="chat"]');
+        if (chatTab) chatTab.click();
+        messageInput.value = '/' + skill.name + ' ';
+        messageInput.focus();
+        messageInput.dispatchEvent(new Event('input'));
+    };
 
-    if (!grid) {
-        console.error('Could not find skillsPageGrid element!');
-        return;
-    }
+    item.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>${skill.displayName}</span>
+    `;
+    return item;
+}
 
-    grid.innerHTML = '';
+// Render a list of skills grouped by category into the given container
+function renderSkillGroups(container, skills) {
+    container.innerHTML = '';
 
-    if (!allSkills || allSkills.length === 0) {
-        console.log('No skills to display');
-        grid.innerHTML = '<p style="text-align: center; color: var(--sf-gray-6); padding: var(--spacing-2xl);">No skills loaded yet...</p>';
-        return;
-    }
-
-    console.log('Grouping and rendering skills...');
-
-    // Group skills by category
-    const grouped = allSkills.reduce((acc, skill) => {
+    const grouped = skills.reduce((acc, skill) => {
         const category = skill.category || 'general';
         if (!acc[category]) acc[category] = [];
         acc[category].push(skill);
         return acc;
     }, {});
 
-    // Render each category
     Object.entries(grouped).sort(([a], [b]) => {
         if (a === 'my-skills') return -1;
         if (b === 'my-skills') return 1;
         return a.localeCompare(b);
-    }).forEach(([category, skills]) => {
+    }).forEach(([category, categorySkills]) => {
         const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'skill-category-page';
+        categoryDiv.className = 'skill-category';
 
         const header = document.createElement('div');
-        header.className = 'skill-category-page-header';
+        header.className = 'skill-category-header';
         if (category === 'my-skills') {
             header.classList.add('my-skills');
             header.textContent = '⭐ My Skills';
         } else {
-            header.textContent = category;
+            header.textContent = category.replace(/[-_]/g, ' ');
         }
-
-        const itemsGrid = document.createElement('div');
-        itemsGrid.className = 'skill-items-grid';
-
-        skills.forEach(skill => {
-            const card = document.createElement('div');
-            card.className = 'skill-card';
-            card.onclick = () => {
-                // Switch to chat and use skill
-                document.querySelector('.view-tab[data-view="chat"]').click();
-                messageInput.value = '/' + skill.name + ' ';
-                messageInput.focus();
-                messageInput.dispatchEvent(new Event('input'));
-            };
-
-            card.innerHTML = `
-                <div class="skill-card-icon">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <div class="skill-card-info">
-                    <div class="skill-card-name">${skill.displayName}</div>
-                    <div class="skill-card-namespace">/${skill.name}</div>
-                </div>
-            `;
-
-            itemsGrid.appendChild(card);
-        });
-
         categoryDiv.appendChild(header);
-        categoryDiv.appendChild(itemsGrid);
-        grid.appendChild(categoryDiv);
+
+        categorySkills.forEach(skill => categoryDiv.appendChild(createSkillItem(skill)));
+        container.appendChild(categoryDiv);
     });
 }
 
-// Skills page search
-document.getElementById('skillsPageSearch').addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    if (!query) {
-        renderSkillsPage();
+function renderSkillsPage() {
+    const list = document.getElementById('skillsList');
+    if (!list) {
+        console.error('Could not find skillsList element!');
         return;
     }
 
-    const filtered = allSkills.filter(skill =>
-        skill.name.toLowerCase().includes(query) ||
-        skill.displayName.toLowerCase().includes(query) ||
-        (skill.category && skill.category.toLowerCase().includes(query))
-    );
-
-    // Render filtered
-    const grid = document.getElementById('skillsPageGrid');
-    grid.innerHTML = '';
-
-    if (filtered.length === 0) {
-        grid.innerHTML = '<p style="text-align: center; color: var(--sf-gray-6); padding: var(--spacing-2xl);">No skills found</p>';
+    if (!allSkills || allSkills.length === 0) {
+        list.innerHTML = '<div class="skills-empty">No skills loaded yet...</div>';
         return;
     }
 
-    const categoryDiv = document.createElement('div');
-    categoryDiv.className = 'skill-category-page';
+    renderSkillGroups(list, allSkills);
+}
 
-    const header = document.createElement('div');
-    header.className = 'skill-category-page-header';
-    header.textContent = `Search Results (${filtered.length})`;
+// Skills search (sidebar)
+const skillsSearchInput = document.getElementById('skillsSearch');
+if (skillsSearchInput) {
+    skillsSearchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        const list = document.getElementById('skillsList');
+        if (!list) return;
 
-    const itemsGrid = document.createElement('div');
-    itemsGrid.className = 'skill-items-grid';
+        if (!query) {
+            renderSkillsPage();
+            return;
+        }
 
-    filtered.forEach(skill => {
-        const card = document.createElement('div');
-        card.className = 'skill-card';
-        card.onclick = () => {
-            document.querySelector('.view-tab[data-view="chat"]').click();
-            messageInput.value = '/' + skill.name + ' ';
-            messageInput.focus();
-            messageInput.dispatchEvent(new Event('input'));
-        };
+        const filtered = allSkills.filter(skill =>
+            skill.name.toLowerCase().includes(query) ||
+            skill.displayName.toLowerCase().includes(query) ||
+            (skill.category && skill.category.toLowerCase().includes(query))
+        );
 
-        card.innerHTML = `
-            <div class="skill-card-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                </svg>
-            </div>
-            <div class="skill-card-info">
-                <div class="skill-card-name">${skill.displayName}</div>
-                <div class="skill-card-namespace">/${skill.name}</div>
-            </div>
-        `;
+        if (filtered.length === 0) {
+            list.innerHTML = '<div class="skills-empty">No skills found</div>';
+            return;
+        }
 
-        itemsGrid.appendChild(card);
+        renderSkillGroups(list, filtered);
     });
-
-    categoryDiv.appendChild(header);
-    categoryDiv.appendChild(itemsGrid);
-    grid.appendChild(categoryDiv);
-});
+}

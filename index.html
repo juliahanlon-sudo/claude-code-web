@@ -12,9 +12,8 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                        <path d="M12 12L2 7M12 12L22 7M12 12V22" stroke="currentColor" stroke-width="2"/>
+                    <svg class="logo-icon" viewBox="0 0 100 70" fill="currentColor">
+                        <path d="M41.6 16.1c3.2-3.3 7.6-5.4 12.6-5.4 6.6 0 12.3 3.7 15.4 9.1 2.7-1.2 5.6-1.9 8.8-1.9 12 0 21.6 9.8 21.6 21.8S90.4 61.6 78.4 61.6c-1.5 0-2.9-.1-4.3-.4-2.7 4.8-7.9 8.1-13.8 8.1-2.5 0-4.8-.6-6.9-1.6-2.8 6.5-9.2 11.1-16.7 11.1-7.9 0-14.6-5-17.1-12.1-1.1.2-2.3.4-3.5.4C7.2 66.5 0 59.2 0 50.1c0-6.1 3.3-11.5 8.2-14.3-1-2.3-1.6-4.9-1.6-7.6 0-10.6 8.6-19.1 19.2-19.1 6.2 0 11.8 3 15.3 7.6" transform="translate(0 -2)"/>
                     </svg>
                     <h1>Claude Code</h1>
                 </div>
@@ -27,23 +26,9 @@
                 </div>
             </div>
 
-            <div class="favorites-section">
-                <div class="section-header">
-                    <h3>Favorite Prompts</h3>
-                    <button class="add-btn" id="addFavoriteBtn" title="Add new favorite">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="favorites-list" id="favoritesList">
-                    <div class="favorites-empty">No favorites yet. Click + to add.</div>
-                </div>
-            </div>
-
             <div class="projects-section">
                 <div class="section-header">
-                    <h3>Recent Projects</h3>
+                    <h3>My Projects</h3>
                     <button class="add-btn" id="addProjectBtn" title="Add new project">
                         <svg viewBox="0 0 24 24" fill="none">
                             <path d="M12 5v14m7-7H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -65,15 +50,6 @@
                 </div>
             </div>
 
-            <div class="sidebar-footer">
-                <button class="settings-btn">
-                    <svg viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-                        <path d="M12 1v6m0 6v6M23 12h-6m-6 0H5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    <span>Settings</span>
-                </button>
-            </div>
         </aside>
 
         <!-- Main Chat Area -->
@@ -141,8 +117,10 @@
                         </svg>
                     </button>
                     <div class="more-menu" id="moreMenu">
+                        <button class="more-menu-item" id="saveAsProjectBtn">Save as Project</button>
                         <button class="more-menu-item" id="copyLastResponseBtn">Copy Last Response</button>
                         <button class="more-menu-item" id="newWindowBtn">Open in New Window</button>
+                        <button class="more-menu-item" id="openSettingsMenuBtn">Settings</button>
                     </div>
                 </div>
             </div>
@@ -152,15 +130,8 @@
                 <div class="chat-container" id="chatContainer">
                 <div class="welcome-message">
                     <div class="welcome-icon">
-                        <svg viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" fill="url(#gradient)" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                            <path d="M12 12L2 7M12 12L22 7M12 12V22" stroke="currentColor" stroke-width="2"/>
-                            <defs>
-                                <linearGradient id="gradient" x1="2" y1="2" x2="22" y2="22">
-                                    <stop offset="0%" stop-color="#0176D3"/>
-                                    <stop offset="100%" stop-color="#1B96FF"/>
-                                </linearGradient>
-                            </defs>
+                        <svg viewBox="0 0 100 70" fill="currentColor">
+                            <path d="M41.6 16.1c3.2-3.3 7.6-5.4 12.6-5.4 6.6 0 12.3 3.7 15.4 9.1 2.7-1.2 5.6-1.9 8.8-1.9 12 0 21.6 9.8 21.6 21.8S90.4 61.6 78.4 61.6c-1.5 0-2.9-.1-4.3-.4-2.7 4.8-7.9 8.1-13.8 8.1-2.5 0-4.8-.6-6.9-1.6-2.8 6.5-9.2 11.1-16.7 11.1-7.9 0-14.6-5-17.1-12.1-1.1.2-2.3.4-3.5.4C7.2 66.5 0 59.2 0 50.1c0-6.1 3.3-11.5 8.2-14.3-1-2.3-1.6-4.9-1.6-7.6 0-10.6 8.6-19.1 19.2-19.1 6.2 0 11.8 3 15.3 7.6" transform="translate(0 -2)"/>
                         </svg>
                     </div>
                     <h3>Welcome to Claude Code</h3>
@@ -196,12 +167,12 @@
                     </button>
                 </div>
                 <div class="input-footer">
-                    <span class="context-info">
+                    <span class="context-info" id="workingDirInfo" title="Working directory Claude runs in — click to reset to home">
                         <svg viewBox="0 0 24 24" fill="none">
                             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2"/>
                             <path d="M9 22V12h6v10" stroke="currentColor" stroke-width="2"/>
                         </svg>
-                        ~/projects/salesforce-app
+                        <span id="workingDirText">~</span>
                     </span>
                     <span class="token-count">0 tokens used</span>
                 </div>
